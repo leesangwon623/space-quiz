@@ -696,6 +696,7 @@
     }
 
     function showResults() {
+      bestScore = Math.max(bestScore, loadBestScore());
       const isNewRecord = score > bestScore;
       if (isNewRecord) {
         bestScore = score;
