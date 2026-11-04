@@ -296,6 +296,33 @@
     .record-message { color: var(--correct); font-weight: 750; }
     .storage-note { margin-top: 8px !important; color: var(--muted); font-size: 13px; }
 
+    .review { margin: 0 0 22px; text-align: left; }
+    .review-all-correct {
+      margin: 0;
+      padding: 12px 14px;
+      border-radius: 12px;
+      background: var(--correct-bg);
+      color: var(--correct);
+      font-weight: 750;
+      text-align: center;
+    }
+    .review details { border: 1px solid var(--line); border-radius: 12px; background: var(--accent-soft); }
+    .review summary {
+      padding: 12px 14px;
+      border-radius: 12px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 750;
+    }
+    .review summary:focus-visible { outline: 3px solid var(--accent-dark); outline-offset: 2px; }
+    .review ol { margin: 0; padding: 0 14px 6px 34px; }
+    .review li { margin: 0 0 14px; font-size: 14px; overflow-wrap: anywhere; }
+    .review-question { margin: 0 0 6px; font-weight: 750; }
+    .review-line { margin: 2px 0; }
+    .review-mine { color: var(--wrong); }
+    .review-right { color: var(--correct); }
+    .review-fact { margin: 6px 0 0; color: var(--muted); font-size: 13px; }
+
     .result-message {
       max-width: 340px;
       margin: 0 auto 25px;
@@ -514,6 +541,7 @@
           <p class="storage-note" id="storage-note"></p>
         </div>
         <p class="result-message" id="result-message"></p>
+        <div class="review" id="review"></div>
         <button class="primary-button" id="restart-button" type="button">다시 하기 <span aria-hidden="true">↻</span></button>
       </div>
     </section>
@@ -601,6 +629,7 @@
     let questionIndex = 0;
     let score = 0;
     let answered = false;
+    let wrongAnswers = [];
 
     function loadBestScore() {
       try {
@@ -684,6 +713,7 @@
       } else {
         buttons[selectedIndex].classList.add("is-wrong");
         buttons[question.correct].classList.add("is-correct");
+        wrongAnswers.push({ question, selectedIndex });
         feedback.textContent = `아쉬워요! ${question.fact}`;
         feedback.classList.add("bad");
       }
@@ -695,7 +725,42 @@
       nextButton.focus();
     }
 
+    function renderReview() {
+      const review = document.getElementById("review");
+      if (wrongAnswers.length === 0) {
+        const message = document.createElement("p");
+        message.className = "review-all-correct";
+        message.textContent = "🎉 모두 맞혔어요! 복습할 문제가 없습니다.";
+        review.replaceChildren(message);
+        return;
+      }
+
+      const details = document.createElement("details");
+      const summary = document.createElement("summary");
+      summary.textContent = `틀린 문제 복습 (${wrongAnswers.length}개)`;
+      const list = document.createElement("ol");
+      wrongAnswers.forEach(({ question, selectedIndex }) => {
+        const item = document.createElement("li");
+        const lines = [
+          ["review-question", question.text],
+          ["review-line review-mine", `✕ 내가 고른 답: ${question.answers[selectedIndex]}`],
+          ["review-line review-right", `✓ 정답: ${question.answers[question.correct]}`],
+          ["review-fact", question.fact]
+        ].map(([className, text]) => {
+          const p = document.createElement("p");
+          p.className = className;
+          p.textContent = text;
+          return p;
+        });
+        item.append(...lines);
+        list.append(item);
+      });
+      details.append(summary, list);
+      review.replaceChildren(details);
+    }
+
     function showResults() {
+      renderReview();
       bestScore = Math.max(bestScore, loadBestScore());
       const isNewRecord = score > bestScore;
       if (isNewRecord) {
@@ -765,6 +830,8 @@
     document.getElementById("restart-button").addEventListener("click", () => {
       questionIndex = 0;
       score = 0;
+      wrongAnswers = [];
+      document.getElementById("review").replaceChildren();
       resultsView.classList.add("hidden");
       quizView.classList.remove("hidden");
       renderQuestion();
