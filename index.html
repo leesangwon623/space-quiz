@@ -285,6 +285,17 @@
       letter-spacing: -.05em;
     }
 
+    .best-score {
+      margin: 0 0 12px;
+      color: var(--muted);
+      font-size: 14px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .result-notices p { margin: 0; }
+    .record-message { color: var(--correct); font-weight: 750; }
+    .storage-note { margin-top: 8px !important; color: var(--muted); font-size: 13px; }
+
     .result-message {
       max-width: 340px;
       margin: 0 auto 25px;
@@ -497,6 +508,11 @@
         <div class="result-emoji" id="result-emoji" aria-hidden="true"></div>
         <h1 id="result-title">임무 완료!</h1>
         <div class="result-score" id="result-score"></div>
+        <p class="best-score" id="best-score"></p>
+        <div class="result-notices" id="result-notices" role="status" aria-live="polite">
+          <p class="record-message" id="record-message"></p>
+          <p class="storage-note" id="storage-note"></p>
+        </div>
         <p class="result-message" id="result-message"></p>
         <button class="primary-button" id="restart-button" type="button">다시 하기 <span aria-hidden="true">↻</span></button>
       </div>
@@ -579,9 +595,33 @@
     ];
 
     const letters = ["A", "B", "C", "D"];
+    const bestScoreStorageKey = "orbit-quest-best-score";
+    let canPersistBestScore = true;
+    let bestScore = loadBestScore();
     let questionIndex = 0;
     let score = 0;
     let answered = false;
+
+    function loadBestScore() {
+      try {
+        const storedScore = window.localStorage.getItem(bestScoreStorageKey);
+        if (storedScore === null || !/^(?:0|[1-9]\d*)$/.test(storedScore)) return 0;
+        const parsedScore = Number(storedScore);
+        return Number.isInteger(parsedScore) && parsedScore <= questions.length ? parsedScore : 0;
+      } catch {
+        canPersistBestScore = false;
+        return 0;
+      }
+    }
+
+    function saveBestScore() {
+      try {
+        window.localStorage.setItem(bestScoreStorageKey, String(bestScore));
+        canPersistBestScore = true;
+      } catch {
+        canPersistBestScore = false;
+      }
+    }
 
     const counter = document.getElementById("question-counter");
     const scoreCounter = document.getElementById("score-counter");
@@ -648,7 +688,7 @@
         feedback.classList.add("bad");
       }
 
-      scoreCounter.      innerHTML = `★ &nbsp;${score}점`;
+      scoreCounter.innerHTML = `★ &nbsp;${score}점`;
       progressFill.style.width = `${((questionIndex + 1) / questions.length) * 100}%`;
       progressTrack.setAttribute("aria-valuenow", questionIndex + 1);
       nextButton.classList.remove("hidden");
@@ -656,6 +696,13 @@
     }
 
     function showResults() {
+      bestScore = Math.max(bestScore, loadBestScore());
+      const isNewRecord = score > bestScore;
+      if (isNewRecord) {
+        bestScore = score;
+        saveBestScore();
+      }
+
       const percent = score / questions.length;
       const reaction = percent === 1
         ? ["🏆", "우주 천재!", "만점이에요! 우주를 완벽하게 꿰뚫고 계시네요."]
@@ -668,9 +715,14 @@
       document.getElementById("result-emoji").textContent = reaction[0];
       document.getElementById("result-title").textContent = reaction[1];
       document.getElementById("result-score").textContent = `${score} / ${questions.length}`;
+      document.getElementById("best-score").textContent = `최고 점수: ${bestScore} / ${questions.length}`;
       document.getElementById("result-message").textContent = reaction[2];
       quizView.classList.add("hidden");
       resultsView.classList.remove("hidden");
+      document.getElementById("record-message").textContent = isNewRecord ? "새 기록!" : "";
+      document.getElementById("storage-note").textContent = canPersistBestScore
+        ? ""
+        : "브라우저 저장소를 사용할 수 없어 최고 기록은 현재 페이지에서만 유지돼요.";
       resultsView.classList.toggle("celebrate", score >= 8);
       resultsView.querySelector(".confetti")?.remove();
       if (score >= 8) {
